@@ -11,35 +11,28 @@ import plotly.express as px
 # =========================================================
 st.set_page_config(
     page_title="AI Agri Optimizer",
-    layout="wide",   # desktop wide, mobile auto stacks
-    initial_sidebar_state="collapsed"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # =========================================================
-# GLOBAL RESPONSIVE CSS (DESKTOP + MOBILE)
+# GLOBAL CSS (DESKTOP + MOBILE)
 # =========================================================
 st.markdown("""
 <style>
-#MainMenu, footer, header {visibility: hidden;}
+#MainMenu, footer {visibility: hidden;}
+.block-container {padding-top: 1rem;}
 
-.block-container {
-    padding-top: 1rem;
-    padding-bottom: 2rem;
-}
-
-/* Cards & metrics */
 div[data-testid="metric-container"] {
     background: rgba(255,255,255,0.06);
     border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 12px;
+    padding: 14px;
 }
 
-/* Mobile optimizations */
 @media (max-width: 768px) {
-    h1, h2, h3 { text-align: center; }
-    .js-plotly-plot { height: 300px !important; }
-    button { width: 100%; border-radius: 12px; }
+    h1, h2, h3 {text-align: center;}
+    button {width: 100%;}
+    .js-plotly-plot {height: 300px !important;}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -52,12 +45,12 @@ for k in ["lat", "lon", "address", "map", "analyzed"]:
         st.session_state[k] = None if k != "analyzed" else False
 
 # =========================================================
-# SAFE LOCATION (NO GEOPY — STREAMLIT SAFE)
+# SAFE LOCATION (NO GEOPY — STREAMLIT CLOUD SAFE)
 # =========================================================
 def get_location(place):
     url = "https://nominatim.openstreetmap.org/search"
-    params = {"q": place + ", India", "format": "json", "limit": 1}
-    headers = {"User-Agent": "ai-agri-app"}
+    params = {"q": f"{place}, India", "format": "json", "limit": 1}
+    headers = {"User-Agent": "ai-agri-optimizer"}
 
     r = requests.get(url, params=params, headers=headers, timeout=10)
     data = r.json()
@@ -68,7 +61,7 @@ def get_location(place):
     return float(data[0]["lat"]), float(data[0]["lon"]), data[0]["display_name"]
 
 # =========================================================
-# SIDEBAR INPUT
+# SIDEBAR
 # =========================================================
 st.sidebar.title("🌾 Farm Details")
 
@@ -76,6 +69,7 @@ place = st.sidebar.text_input("Village / City / PIN", "Madurai")
 crop = st.sidebar.selectbox("Crop", ["Rice", "Wheat", "Maize"])
 season = st.sidebar.selectbox("Season", ["Kharif", "Rabi"])
 area = st.sidebar.number_input("Area (acres)", 0.5, 50.0, 1.0)
+
 analyze = st.sidebar.button("Analyze")
 
 # =========================================================
@@ -85,7 +79,7 @@ if analyze:
     try:
         lat, lon, address = get_location(place)
     except Exception:
-        st.error("Location not found. Try nearest city.")
+        st.error("❌ Location not found. Try nearest city.")
         st.stop()
 
     st.session_state.lat = lat
@@ -108,7 +102,7 @@ if not st.session_state.analyzed:
     Real-time satellite & ML-based farm intelligence
     </p>
     """, unsafe_allow_html=True)
-    st.info("Enter farm details from the sidebar and click **Analyze**")
+    st.info("👈 Enter farm details in the sidebar and click **Analyze**")
     st.stop()
 
 lat = st.session_state.lat
@@ -150,6 +144,7 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
             "Temperature (°C)": list(p["T2M"].values())[-7:],
             "Rainfall (mm)": list(p["PRECTOTCORR"].values())[-7:]
         })
+
     except Exception:
         weather_df = pd.DataFrame({
             "Temperature (°C)": [30,31,32,31,30,29,30],
@@ -186,11 +181,12 @@ with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
         st.metric("Average NDVI", round(avg_ndvi, 3))
         st.plotly_chart(px.line(ndvi_df, x="Date", y="NDVI", markers=True),
                         use_container_width=True)
+
     except Exception:
-        st.warning("NDVI unavailable for this location")
+        st.warning("NDVI data unavailable for this location")
 
 # =========================================================
-# SOIL
+# SOIL TYPE
 # =========================================================
 state = next((s for s in [
     "Tamil Nadu","Andhra Pradesh","Telangana","Karnataka","Kerala","Punjab"
@@ -203,7 +199,7 @@ soil = {
     "Karnataka":"Black Cotton Soil",
     "Kerala":"Laterite Soil",
     "Punjab":"Alluvial Soil"
-}.get(state,"Mixed Regional Soil")
+}.get(state, "Mixed Regional Soil")
 
 st.subheader("🌱 Soil Type")
 st.success(soil)
@@ -214,26 +210,28 @@ st.success(soil)
 base = {"Rice":2400,"Wheat":2200,"Maize":2600}[crop]
 soil_f = {"Red Loamy Soil":1.0,"Alluvial Soil":1.05,"Black Cotton Soil":1.1}.get(soil,0.95)
 season_f = {"Kharif":1.0,"Rabi":0.9}[season]
-ndvi_f = max(0.7,min(1.2,avg_ndvi/0.5)) if avg_ndvi else 1.0
+ndvi_f = max(0.7, min(1.2, avg_ndvi / 0.5)) if avg_ndvi else 1.0
 
-yield_kg = round(base*soil_f*season_f*ndvi_f*area,2)
+yield_kg = round(base * soil_f * season_f * ndvi_f * area, 2)
 
 price = {"Rice":25,"Wheat":28,"Maize":22}[crop]
-normal_cost = {"Rice":18000,"Wheat":15000,"Maize":16000}[crop]*area
-opt_cost = normal_cost*0.85
+normal_cost = {"Rice":18000,"Wheat":15000,"Maize":16000}[crop] * area
+opt_cost = normal_cost * 0.85
 
-revenue = yield_kg*price
-profit_opt = revenue-opt_cost
+revenue = yield_kg * price
+profit_normal = revenue - normal_cost
+profit_opt = revenue - opt_cost
 
 st.subheader("📊 Yield & Profit")
-st.metric("Yield (kg)", yield_kg)
+
+st.metric("Estimated Yield (kg)", yield_kg)
 st.metric("Revenue (₹)", round(revenue,2))
 st.metric("Optimized Profit (₹)", round(profit_opt,2))
 
 st.plotly_chart(px.bar(
     pd.DataFrame({
         "Scenario":["Normal","Optimized"],
-        "Profit":[revenue-normal_cost, profit_opt]
+        "Profit":[profit_normal, profit_opt]
     }),
     x="Scenario", y="Profit", text_auto=True),
     use_container_width=True
@@ -253,7 +251,7 @@ with st.expander("🏛 Government Schemes", expanded=True):
         "Andhra Pradesh":["YSR Rythu Bharosa"],
         "Telangana":["Rythu Bandhu"],
         "Karnataka":["Raitha Siri"]
-    }.get(state,[])
+    }.get(state, [])
 
     for s in schemes:
         st.write("•", s)
