@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 
 # =========================================================
-# PAGE CONFIG (AUTO-RESPONSIVE)
+# PAGE CONFIG
 # =========================================================
 st.set_page_config(
     page_title="AI Agri Optimizer",
@@ -40,12 +40,12 @@ div[data-testid="metric-container"] {
 # =========================================================
 # SESSION STATE
 # =========================================================
-for k in ["lat", "lon", "address", "map", "analyzed"]:
+for k in ["lat", "lon", "address", "map", "analyzed", "last_place"]:
     if k not in st.session_state:
-        st.session_state[k] = None if k != "analyzed" else False
+        st.session_state[k] = None if k not in ["analyzed"] else False
 
 # =========================================================
-# SAFE LOCATION (NO GEOPY — STREAMLIT CLOUD SAFE)
+# SAFE LOCATION (NO GEOPY)
 # =========================================================
 def get_location(place):
     url = "https://nominatim.openstreetmap.org/search"
@@ -66,10 +66,27 @@ def get_location(place):
 st.sidebar.title("🌾 Farm Details")
 
 place = st.sidebar.text_input("Village / City / PIN", "Madurai")
-crop = st.sidebar.selectbox("Crop", ["Rice", "Wheat", "Maize"])
-season = st.sidebar.selectbox("Season", ["Kharif", "Rabi"])
-area = st.sidebar.number_input("Area (acres)", 0.5, 50.0, 1.0)
 
+crop = st.sidebar.selectbox(
+    "Crop",
+    [
+        # Cereals
+        "Rice", "Wheat", "Maize",
+        # Pulses
+        "Chickpea", "Pigeon Pea",
+        # Vegetables
+        "Tomato", "Potato", "Onion",
+        # Fruits
+        "Banana", "Mango", "Grapes",
+        # Flowers
+        "Rose", "Jasmine", "Marigold",
+        # Plantation
+        "Sugarcane", "Cotton", "Tea", "Coffee"
+    ]
+)
+
+season = st.sidebar.selectbox("Season", ["Kharif", "Rabi"])
+area = st.sidebar.number_input("Area (acres)", 0.25, 100.0, 1.0)
 analyze = st.sidebar.button("Analyze")
 
 # =========================================================
@@ -82,15 +99,23 @@ if analyze:
         st.error("❌ Location not found. Try nearest city.")
         st.stop()
 
+    # Update session
     st.session_state.lat = lat
     st.session_state.lon = lon
     st.session_state.address = address
     st.session_state.analyzed = True
 
-    if st.session_state.map is None:
+    # 🔑 ALWAYS recreate map when place changes
+    if st.session_state.last_place != place:
         m = folium.Map(location=[lat, lon], zoom_start=11)
-        folium.Marker([lat, lon], tooltip=place).add_to(m)
+        folium.Marker(
+            [lat, lon],
+            tooltip=place,
+            icon=folium.Icon(color="green", icon="leaf")
+        ).add_to(m)
+
         st.session_state.map = m
+        st.session_state.last_place = place
 
 # =========================================================
 # LANDING SCREEN
@@ -120,14 +145,14 @@ Satellite • Weather • Soil • Yield • Cost Optimization
 """, unsafe_allow_html=True)
 
 # =========================================================
-# MAP (NO FLASHING)
+# MAP
 # =========================================================
 st.subheader("🗺 Farm Location")
 st.success(address)
-st_folium(st.session_state.map, height=300, key="STATIC_MAP")
+st_folium(st.session_state.map, height=320, key="STATIC_MAP")
 
 # =========================================================
-# WEATHER (NASA POWER)
+# WEATHER
 # =========================================================
 with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
     try:
@@ -139,7 +164,6 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
         ).json()
 
         p = w["properties"]["parameter"]
-
         weather_df = pd.DataFrame({
             "Temperature (°C)": list(p["T2M"].values())[-7:],
             "Rainfall (mm)": list(p["PRECTOTCORR"].values())[-7:]
@@ -150,13 +174,13 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
             "Temperature (°C)": [30,31,32,31,30,29,30],
             "Rainfall (mm)": [2,0,5,1,0,0,3]
         })
-        st.warning("Live weather unavailable – using seasonal averages")
+        st.warning("Live weather unavailable – using averages")
 
     st.plotly_chart(px.line(weather_df, markers=True),
                     use_container_width=True)
 
 # =========================================================
-# NDVI (NASA)
+# NDVI
 # =========================================================
 with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
     avg_ndvi = None
@@ -179,11 +203,13 @@ with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
 
         avg_ndvi = ndvi_df["NDVI"].mean()
         st.metric("Average NDVI", round(avg_ndvi, 3))
-        st.plotly_chart(px.line(ndvi_df, x="Date", y="NDVI", markers=True),
-                        use_container_width=True)
+        st.plotly_chart(
+            px.line(ndvi_df, x="Date", y="NDVI", markers=True),
+            use_container_width=True
+        )
 
     except Exception:
-        st.warning("NDVI data unavailable for this location")
+        st.warning("NDVI unavailable for this location")
 
 # =========================================================
 # SOIL TYPE
@@ -205,33 +231,49 @@ st.subheader("🌱 Soil Type")
 st.success(soil)
 
 # =========================================================
-# YIELD + PROFIT MODEL
+# YIELD + PROFIT (EXTENDED CROPS)
 # =========================================================
-base = {"Rice":2400,"Wheat":2200,"Maize":2600}[crop]
+base_yield = {
+    "Rice":2400, "Wheat":2200, "Maize":2600,
+    "Chickpea":1800, "Pigeon Pea":1600,
+    "Tomato":28000, "Potato":25000, "Onion":22000,
+    "Banana":35000, "Mango":12000, "Grapes":18000,
+    "Rose":9000, "Jasmine":7000, "Marigold":8000,
+    "Sugarcane":65000, "Cotton":1800, "Tea":3000, "Coffee":1200
+}
+
+price_map = {
+    "Rice":25, "Wheat":28, "Maize":22,
+    "Chickpea":60, "Pigeon Pea":70,
+    "Tomato":15, "Potato":12, "Onion":18,
+    "Banana":10, "Mango":40, "Grapes":50,
+    "Rose":80, "Jasmine":120, "Marigold":60,
+    "Sugarcane":3, "Cotton":65, "Tea":180, "Coffee":220
+}
+
+base = base_yield[crop]
+price = price_map[crop]
+
 soil_f = {"Red Loamy Soil":1.0,"Alluvial Soil":1.05,"Black Cotton Soil":1.1}.get(soil,0.95)
 season_f = {"Kharif":1.0,"Rabi":0.9}[season]
-ndvi_f = max(0.7, min(1.2, avg_ndvi / 0.5)) if avg_ndvi else 1.0
+ndvi_f = max(0.7, min(1.2, avg_ndvi/0.5)) if avg_ndvi else 1.0
 
 yield_kg = round(base * soil_f * season_f * ndvi_f * area, 2)
 
-price = {"Rice":25,"Wheat":28,"Maize":22}[crop]
-normal_cost = {"Rice":18000,"Wheat":15000,"Maize":16000}[crop] * area
-opt_cost = normal_cost * 0.85
-
+cost = yield_kg * price * 0.45
+opt_cost = cost * 0.85
 revenue = yield_kg * price
-profit_normal = revenue - normal_cost
-profit_opt = revenue - opt_cost
+profit = revenue - opt_cost
 
 st.subheader("📊 Yield & Profit")
-
-st.metric("Estimated Yield (kg)", yield_kg)
-st.metric("Revenue (₹)", round(revenue,2))
-st.metric("Optimized Profit (₹)", round(profit_opt,2))
+st.metric("Estimated Yield", f"{yield_kg:,} kg")
+st.metric("Revenue", f"₹ {revenue:,.0f}")
+st.metric("Optimized Profit", f"₹ {profit:,.0f}")
 
 st.plotly_chart(px.bar(
     pd.DataFrame({
         "Scenario":["Normal","Optimized"],
-        "Profit":[profit_normal, profit_opt]
+        "Profit":[revenue-cost, profit]
     }),
     x="Scenario", y="Profit", text_auto=True),
     use_container_width=True
@@ -256,4 +298,4 @@ with st.expander("🏛 Government Schemes", expanded=True):
     for s in schemes:
         st.write("•", s)
 
-st.success("✅ Desktop & Mobile responsive • Stable • Production ready")
+st.success("✅ Map updates correctly • Multi-crop support • Production ready")
