@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-from geopy.geocoders import Nominatim
 from datetime import datetime, timedelta
 import plotly.express as px
 
@@ -15,6 +14,20 @@ for k in ["lat", "lon", "address", "map", "analyzed"]:
     if k not in st.session_state:
         st.session_state[k] = None if k != "analyzed" else False
 
+# ---------------- LOCATION (DEPLOY SAFE) ----------------
+def get_location(place):
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": place + ", India", "format": "json", "limit": 1}
+    headers = {"User-Agent": "ai-agri-app"}
+
+    r = requests.get(url, params=params, headers=headers, timeout=10)
+    data = r.json()
+
+    if not data:
+        raise ValueError("Location not found")
+
+    return float(data[0]["lat"]), float(data[0]["lon"]), data[0]["display_name"]
+
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("🌾 Farm Details")
 
@@ -25,36 +38,29 @@ area = st.sidebar.number_input("Area (acres)", 0.5, 50.0, 1.0)
 
 analyze = st.sidebar.button("Analyze")
 
-# ---------------- LOCATION ----------------
+# ---------------- ANALYZE ----------------
 if analyze:
-    geolocator = Nominatim(user_agent="ai_agri_app", timeout=10)
-    location = geolocator.geocode(place + ", India")
-
-    if not location:
+    try:
+        lat, lon, address = get_location(place)
+    except Exception:
         st.error("Location not found. Try nearest city.")
         st.stop()
 
-    st.session_state.lat = location.latitude
-    st.session_state.lon = location.longitude
-    st.session_state.address = location.address
+    st.session_state.lat = lat
+    st.session_state.lon = lon
+    st.session_state.address = address
     st.session_state.analyzed = True
 
-    m = folium.Map(
-        location=[st.session_state.lat, st.session_state.lon],
-        zoom_start=11,
-        tiles="OpenStreetMap"
-    )
-    folium.Marker(
-        [st.session_state.lat, st.session_state.lon],
-        tooltip=place
-    ).add_to(m)
-
-    st.session_state.map = m
+    # Create map ONCE (prevents flashing)
+    if st.session_state.map is None:
+        m = folium.Map(location=[lat, lon], zoom_start=11)
+        folium.Marker([lat, lon], tooltip=place).add_to(m)
+        st.session_state.map = m
 
 # ---------------- STOP UNTIL ANALYZED ----------------
 if not st.session_state.analyzed:
-    st.title("AI Agri Optimizer")
-    st.info("Enter details and click **Analyze**")
+    st.title("🌾 AI Agri Optimizer")
+    st.info("Enter farm details and click **Analyze**")
     st.stop()
 
 lat = st.session_state.lat
@@ -82,11 +88,11 @@ weather_url = (
 
 try:
     w = requests.get(weather_url, timeout=20).json()
-    params = w["properties"]["parameter"]
+    p = w["properties"]["parameter"]
 
     weather_df = pd.DataFrame({
-        "Temperature (°C)": list(params["T2M"].values())[-7:],
-        "Rainfall (mm)": list(params["PRECTOTCORR"].values())[-7:]
+        "Temperature (°C)": list(p["T2M"].values())[-7:],
+        "Rainfall (mm)": list(p["PRECTOTCORR"].values())[-7:]
     })
 
 except Exception:
@@ -108,15 +114,14 @@ ndvi_url = (
     "https://power.larc.nasa.gov/api/temporal/daily/point"
     "?parameters=NDVI"
     f"&latitude={lat}&longitude={lon}"
-    f"&start={start.strftime('%Y%m%d')}"
-    f"&end={end.strftime('%Y%m%d')}"
+    f"&start={start.strftime('%Y%m%d')}&end={end.strftime('%Y%m%d')}"
     "&community=AG&format=JSON"
 )
 
 avg_ndvi = None
 try:
-    ndvi_raw = requests.get(ndvi_url, timeout=20).json()
-    nd = ndvi_raw["properties"]["parameter"]["NDVI"]
+    nd = requests.get(ndvi_url, timeout=20).json()
+    nd = nd["properties"]["parameter"]["NDVI"]
 
     ndvi_df = pd.DataFrame({
         "Date": pd.to_datetime(nd.keys()),
@@ -126,20 +131,19 @@ try:
     avg_ndvi = ndvi_df["NDVI"].mean()
 
     st.metric("Average NDVI", round(avg_ndvi, 3))
-    st.plotly_chart(px.line(ndvi_df, x="Date", y="NDVI", markers=True),
-                    use_container_width=True)
+    st.plotly_chart(
+        px.line(ndvi_df, x="Date", y="NDVI", markers=True),
+        use_container_width=True
+    )
 
 except Exception:
     st.warning("NDVI data unavailable for this location.")
 
 # ---------------- SOIL ----------------
-state = next(
-    (s for s in [
-        "Tamil Nadu", "Andhra Pradesh", "Telangana",
-        "Karnataka", "Kerala", "Punjab"
-    ] if s in address),
-    "Unknown"
-)
+state = next((s for s in [
+    "Tamil Nadu", "Andhra Pradesh", "Telangana",
+    "Karnataka", "Kerala", "Punjab"
+] if s in address), "Unknown")
 
 soil_map = {
     "Tamil Nadu": "Red Loamy Soil",
@@ -156,19 +160,16 @@ st.subheader("🌱 Soil Type")
 st.success(soil)
 
 # ---------------- YIELD MODEL ----------------
-base_yield = {"Rice": 2400, "Wheat": 2200, "Maize": 2600}.get(crop, 2200)
+base_yield = {"Rice": 2400, "Wheat": 2200, "Maize": 2600}[crop]
 soil_factor = {"Red Loamy Soil": 1.0, "Alluvial Soil": 1.05,
                "Black Cotton Soil": 1.1}.get(soil, 0.95)
-season_factor = {"Kharif": 1.0, "Rabi": 0.9}.get(season, 1.0)
-
-ndvi_factor = 1.0
-if avg_ndvi:
-    ndvi_factor = max(0.7, min(1.2, avg_ndvi / 0.5))
+season_factor = {"Kharif": 1.0, "Rabi": 0.9}[season]
+ndvi_factor = max(0.7, min(1.2, avg_ndvi / 0.5)) if avg_ndvi else 1.0
 
 yield_kg = round(base_yield * soil_factor *
                  season_factor * ndvi_factor * area, 2)
 
-# ---------------- PRICE & COST ----------------
+# ---------------- COST & PROFIT ----------------
 price_map = {"Rice": 25, "Wheat": 28, "Maize": 22}
 cost_map = {"Rice": 18000, "Wheat": 15000, "Maize": 16000}
 
@@ -193,7 +194,7 @@ c4.metric("Normal Cost (₹)", normal_cost)
 c5.metric("Optimized Cost (₹)", round(optimized_cost, 2))
 c6.metric("Savings (₹)", round(normal_cost - optimized_cost, 2))
 
-# ---------------- CHARTS ----------------
+# ---------------- PROFIT CHART ----------------
 st.subheader("📈 Profit Comparison")
 
 profit_df = pd.DataFrame({
@@ -226,4 +227,4 @@ state_schemes = {
 for s in central + state_schemes.get(state, []):
     st.write("•", s)
 
-st.success("✅ Analysis complete. Optimization based on soil, season, NDVI & weather.")
+st.success("✅ Analysis complete. Stable • Real-time • Deployable.")
