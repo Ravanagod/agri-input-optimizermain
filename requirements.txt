@@ -1,8 +1,11 @@
 streamlit
-streamlit-folium
-folium
 pandas
-plotly
-requests
-joblib
+numpy
 scikit-learn
+scipy
+requests
+plotly
+folium
+streamlit-folium
+geopy
+joblib
