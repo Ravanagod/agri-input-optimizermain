@@ -4,29 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="74cb1527-9b3a-455b-822f-b19c3f78c8ec" name="Changes" comment="AGRICULTURE">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ml/predict_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/ml/predict_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ml/price_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/ml/price_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ml/train_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/ml/train_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ml/train_yield_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/ml/train_yield_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ml/yield_model.pkl" beforeDir="false" afterPath="$PROJECT_DIR$/ml/yield_model.pkl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ml/yield_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/ml/yield_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizer/__init__..py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizer/cost_optimizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer/cost_optimizer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizer/rules.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer/rules.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizer/yield_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer/yield_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/alert_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/alert_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/gee_ndvi.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/gee_ndvi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/location_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/location_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/ndvi_nasa.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/ndvi_nasa.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/pdf_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/pdf_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/scheme_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/scheme_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/soil_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/soil_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/weather_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/weather_service.py" afterDir="false" />
-    </list>
+    <list default="true" id="74cb1527-9b3a-455b-822f-b19c3f78c8ec" name="Changes" comment="AGRICULTURE" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
