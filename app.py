@@ -6,12 +6,46 @@ from streamlit_folium import st_folium
 from datetime import datetime, timedelta
 import plotly.express as px
 
-# ---------------- PAGE CONFIG (MOBILE FRIENDLY) ----------------
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="AI Agri Optimizer",
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
+
+# ---------------- UI / MOBILE POLISH ----------------
+st.markdown("""
+<style>
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+
+.block-container {
+    padding-top: 1rem !important;
+    padding-bottom: 2rem !important;
+}
+
+@media (max-width: 768px) {
+    h1, h2, h3 {
+        text-align: center;
+    }
+    div[data-testid="metric-container"] {
+        background-color: rgba(255,255,255,0.06);
+        padding: 14px;
+        border-radius: 14px;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+    .js-plotly-plot {
+        height: 300px !important;
+    }
+    button {
+        width: 100%;
+        border-radius: 10px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------- SESSION STATE ----------------
 for k in ["lat", "lon", "address", "map", "analyzed"]:
@@ -62,9 +96,13 @@ if analyze:
 
 # ---------------- STOP UNTIL ANALYZED ----------------
 if not st.session_state.analyzed:
-    st.title("🌾 AI Agri Optimizer")
-    st.caption("Real-time satellite & ML-based farm intelligence")
-    st.info("Enter details in the sidebar and tap **Analyze**")
+    st.markdown("""
+    <h1 style="text-align:center;">🌾 AI Agri Optimizer</h1>
+    <p style="text-align:center; opacity:0.85;">
+    Real-time satellite & ML-based farm intelligence
+    </p>
+    """, unsafe_allow_html=True)
+    st.info("Enter farm details from the sidebar and tap **Analyze**")
     st.stop()
 
 lat = st.session_state.lat
@@ -72,8 +110,12 @@ lon = st.session_state.lon
 address = st.session_state.address
 
 # ---------------- HEADER ----------------
-st.title(f"🌾 AI Agri — {place.title()}")
-st.caption("Satellite • Weather • Soil • Yield • Cost Optimization")
+st.markdown(f"""
+<h1 style="text-align:center;">🌾 AI Agri — {place.title()}</h1>
+<p style="text-align:center; opacity:0.85;">
+Satellite • Weather • Soil • Yield • Cost Optimization
+</p>
+""", unsafe_allow_html=True)
 
 # ---------------- MAP ----------------
 st.subheader("🗺 Farm Location")
@@ -98,7 +140,6 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
             "Temperature (°C)": list(p["T2M"].values())[-7:],
             "Rainfall (mm)": list(p["PRECTOTCORR"].values())[-7:]
         })
-
     except Exception:
         weather_df = pd.DataFrame({
             "Temperature (°C)": [30, 31, 32, 31, 30, 29, 30],
@@ -106,8 +147,7 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
         })
         st.warning("Live weather unavailable – using seasonal averages.")
 
-    st.plotly_chart(px.line(weather_df, markers=True),
-                    use_container_width=True)
+    st.plotly_chart(px.line(weather_df, markers=True), use_container_width=True)
 
 # ---------------- NDVI ----------------
 with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
@@ -134,13 +174,9 @@ with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
         }).dropna()
 
         avg_ndvi = ndvi_df["NDVI"].mean()
-
         st.metric("Average NDVI", round(avg_ndvi, 3))
-        st.plotly_chart(
-            px.line(ndvi_df, x="Date", y="NDVI", markers=True),
-            use_container_width=True
-        )
-
+        st.plotly_chart(px.line(ndvi_df, x="Date", y="NDVI", markers=True),
+                        use_container_width=True)
     except Exception:
         st.warning("NDVI data unavailable for this location.")
 
@@ -160,11 +196,10 @@ soil_map = {
 }
 
 soil = soil_map.get(state, "Mixed Regional Soil")
-
 st.subheader("🌱 Soil Type")
 st.success(soil)
 
-# ---------------- YIELD & COST ----------------
+# ---------------- YIELD & PROFIT ----------------
 base_yield = {"Rice": 2400, "Wheat": 2200, "Maize": 2600}[crop]
 soil_factor = {"Red Loamy Soil": 1.0, "Alluvial Soil": 1.05,
                "Black Cotton Soil": 1.1}.get(soil, 0.95)
@@ -186,7 +221,6 @@ profit_normal = revenue - normal_cost
 profit_optimized = revenue - optimized_cost
 
 st.subheader("📊 Yield & Profit")
-
 st.metric("Estimated Yield (kg)", yield_kg)
 st.metric("Revenue (₹)", round(revenue, 2))
 st.metric("Optimized Profit (₹)", round(profit_optimized, 2))
@@ -196,28 +230,23 @@ profit_df = pd.DataFrame({
     "Profit (₹)": [profit_normal, profit_optimized]
 })
 
-st.plotly_chart(
-    px.bar(profit_df, x="Scenario", y="Profit (₹)", text_auto=True),
-    use_container_width=True
-)
+st.plotly_chart(px.bar(profit_df, x="Scenario", y="Profit (₹)", text_auto=True),
+                use_container_width=True)
 
 # ---------------- GOVERNMENT SCHEMES ----------------
 with st.expander("🏛 Government Schemes", expanded=True):
-
     central = [
         "PM-KISAN – ₹6000/year",
         "PMFBY – Crop Insurance",
         "Soil Health Card",
         "Kisan Credit Card"
     ]
-
     state_schemes = {
         "Tamil Nadu": ["Kuruvai Special Package"],
         "Andhra Pradesh": ["YSR Rythu Bharosa"],
         "Telangana": ["Rythu Bandhu"],
         "Karnataka": ["Raitha Siri"]
     }
-
     for s in central + state_schemes.get(state, []):
         st.write("•", s)
 
