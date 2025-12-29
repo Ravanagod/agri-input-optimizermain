@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# GLOBAL CSS (RESPONSIVE + POLISHED)
+# GLOBAL CSS (RESPONSIVE & POLISHED)
 # =========================================================
 st.markdown("""
 <style>
@@ -47,7 +47,7 @@ for k in ["lat", "lon", "address", "map", "analyzed", "last_place"]:
 # =========================================================
 # SAFE LOCATION (ROBUST – NEVER FAILS)
 # =========================================================
-def get_location(place):
+def get_location(place: str):
     url = "https://nominatim.openstreetmap.org/search"
     headers = {"User-Agent": "ai-agri-optimizer"}
 
@@ -77,7 +77,7 @@ def get_location(place):
         except Exception:
             continue
 
-    # FINAL DEMO-SAFE FALLBACK
+    # Final safe fallback (never crash demo)
     return 9.9252, 78.1198, "Madurai, Tamil Nadu, India"
 
 # =========================================================
@@ -99,10 +99,11 @@ crop = st.sidebar.selectbox(
 
 season = st.sidebar.selectbox("Season", ["Kharif", "Rabi"])
 area = st.sidebar.number_input("Area (acres)", 0.25, 100.0, 1.0)
+
 analyze = st.sidebar.button("Analyze")
 
 # =========================================================
-# ANALYZE ACTION
+# ANALYZE ACTION (MAP STABILITY FIXED)
 # =========================================================
 if analyze:
     with st.spinner("🌍 Connecting to satellite & maps..."):
@@ -112,16 +113,18 @@ if analyze:
     st.session_state.lon = lon
     st.session_state.address = address
     st.session_state.analyzed = True
-    st.session_state.last_place = place
 
-    # Always rebuild map (prevents stale map bug)
-    m = folium.Map(location=[lat, lon], zoom_start=11)
-    folium.Marker(
-        [lat, lon],
-        tooltip=place,
-        icon=folium.Icon(color="green", icon="leaf")
-    ).add_to(m)
-    st.session_state.map = m
+    # 🔒 rebuild map ONLY when place changes
+    if st.session_state.last_place != place:
+        m = folium.Map(location=[lat, lon], zoom_start=11, control_scale=True)
+        folium.Marker(
+            [lat, lon],
+            tooltip=place,
+            icon=folium.Icon(color="green", icon="leaf")
+        ).add_to(m)
+
+        st.session_state.map = m
+        st.session_state.last_place = place
 
 # =========================================================
 # LANDING SCREEN
@@ -133,7 +136,7 @@ if not st.session_state.analyzed:
     Real-time satellite & ML-based farm intelligence
     </p>
     """, unsafe_allow_html=True)
-    st.info("👈 Enter farm details from the sidebar and click **Analyze**")
+    st.info("👈 Enter farm details in the sidebar and click **Analyze**")
     st.stop()
 
 lat = st.session_state.lat
@@ -151,11 +154,17 @@ Satellite • Weather • Soil • Yield • Cost Optimization
 """, unsafe_allow_html=True)
 
 # =========================================================
-# MAP (NO FLASHING)
+# MAP (STEADY – NO FLASHING)
 # =========================================================
 st.subheader("🗺 Farm Location")
 st.success(address)
-st_folium(st.session_state.map, height=300, key="STATIC_MAP")
+
+st_folium(
+    st.session_state.map,
+    height=320,
+    key="LOCKED_MAP",
+    returned_objects=[]
+)
 
 # =========================================================
 # WEATHER (NASA POWER)
@@ -168,16 +177,16 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
             f"&community=AG&format=JSON",
             timeout=15
         ).json()
-        p = w["properties"]["parameter"]
 
+        p = w["properties"]["parameter"]
         weather_df = pd.DataFrame({
             "Temperature (°C)": list(p["T2M"].values())[-7:],
             "Rainfall (mm)": list(p["PRECTOTCORR"].values())[-7:]
         })
     except Exception:
         weather_df = pd.DataFrame({
-            "Temperature (°C)": [30,31,32,31,30,29,30],
-            "Rainfall (mm)": [2,0,5,1,0,0,3]
+            "Temperature (°C)": [30, 31, 32, 31, 30, 29, 30],
+            "Rainfall (mm)": [2, 0, 5, 1, 0, 0, 3]
         })
         st.warning("Live weather unavailable – using seasonal averages")
 
@@ -211,22 +220,23 @@ with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
         st.plotly_chart(px.line(ndvi_df, x="Date", y="NDVI", markers=True),
                         use_container_width=True)
     except Exception:
-        st.warning("NDVI unavailable for this location")
+        st.warning("NDVI data unavailable for this location")
 
 # =========================================================
-# SOIL TYPE (STATE-BASED)
+# SOIL TYPE (STATE BASED)
 # =========================================================
 state = next((s for s in [
-    "Tamil Nadu","Andhra Pradesh","Telangana","Karnataka","Kerala","Punjab"
+    "Tamil Nadu", "Andhra Pradesh", "Telangana",
+    "Karnataka", "Kerala", "Punjab"
 ] if s in address), "Unknown")
 
 soil = {
-    "Tamil Nadu":"Red Loamy Soil",
-    "Andhra Pradesh":"Alluvial Soil",
-    "Telangana":"Black Cotton Soil",
-    "Karnataka":"Black Cotton Soil",
-    "Kerala":"Laterite Soil",
-    "Punjab":"Alluvial Soil"
+    "Tamil Nadu": "Red Loamy Soil",
+    "Andhra Pradesh": "Alluvial Soil",
+    "Telangana": "Black Cotton Soil",
+    "Karnataka": "Black Cotton Soil",
+    "Kerala": "Laterite Soil",
+    "Punjab": "Alluvial Soil"
 }.get(state, "Mixed Regional Soil")
 
 st.subheader("🌱 Soil Type")
@@ -236,38 +246,40 @@ st.success(soil)
 # YIELD + COST MODEL (EXTENDED CROPS)
 # =========================================================
 base_yield = {
-    "Rice":2400, "Wheat":2200, "Maize":2600,
-    "Cotton":1800, "Sugarcane":75000,
-    "Banana":30000, "Mango":12000,
-    "Coconut":10000, "Flowers":15000,
-    "Vegetables":20000
+    "Rice": 2400, "Wheat": 2200, "Maize": 2600,
+    "Cotton": 1800, "Sugarcane": 75000,
+    "Banana": 30000, "Mango": 12000,
+    "Coconut": 10000, "Flowers": 15000,
+    "Vegetables": 20000
 }[crop]
 
 soil_factor = {
-    "Red Loamy Soil":1.0,
-    "Alluvial Soil":1.05,
-    "Black Cotton Soil":1.1
+    "Red Loamy Soil": 1.0,
+    "Alluvial Soil": 1.05,
+    "Black Cotton Soil": 1.1
 }.get(soil, 0.95)
 
-season_factor = {"Kharif":1.0, "Rabi":0.9}[season]
+season_factor = {"Kharif": 1.0, "Rabi": 0.9}[season]
 ndvi_factor = max(0.7, min(1.2, avg_ndvi / 0.5)) if avg_ndvi else 1.0
 
-yield_kg = round(base_yield * soil_factor * season_factor * ndvi_factor * area, 2)
+yield_kg = round(
+    base_yield * soil_factor * season_factor * ndvi_factor * area, 2
+)
 
 price_map = {
-    "Rice":25, "Wheat":28, "Maize":22,
-    "Cotton":60, "Sugarcane":3,
-    "Banana":15, "Mango":40,
-    "Coconut":25, "Flowers":50,
-    "Vegetables":20
+    "Rice": 25, "Wheat": 28, "Maize": 22,
+    "Cotton": 60, "Sugarcane": 3,
+    "Banana": 15, "Mango": 40,
+    "Coconut": 25, "Flowers": 50,
+    "Vegetables": 20
 }
 
 cost_map = {
-    "Rice":18000, "Wheat":15000, "Maize":16000,
-    "Cotton":22000, "Sugarcane":30000,
-    "Banana":25000, "Mango":20000,
-    "Coconut":18000, "Flowers":20000,
-    "Vegetables":17000
+    "Rice": 18000, "Wheat": 15000, "Maize": 16000,
+    "Cotton": 22000, "Sugarcane": 30000,
+    "Banana": 25000, "Mango": 20000,
+    "Coconut": 18000, "Flowers": 20000,
+    "Vegetables": 17000
 }
 
 price = price_map[crop]
@@ -285,15 +297,17 @@ st.subheader("📊 Yield & Profit")
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Yield (kg)", yield_kg)
-c2.metric("Revenue (₹)", round(revenue,2))
-c3.metric("Optimized Profit (₹)", round(profit_opt,2))
+c2.metric("Revenue (₹)", round(revenue, 2))
+c3.metric("Optimized Profit (₹)", round(profit_opt, 2))
 
-st.plotly_chart(px.bar(
-    pd.DataFrame({
-        "Scenario":["Normal","Optimized"],
-        "Profit":[profit_normal, profit_opt]
-    }),
-    x="Scenario", y="Profit", text_auto=True),
+st.plotly_chart(
+    px.bar(
+        pd.DataFrame({
+            "Scenario": ["Normal", "Optimized"],
+            "Profit (₹)": [profit_normal, profit_opt]
+        }),
+        x="Scenario", y="Profit (₹)", text_auto=True
+    ),
     use_container_width=True
 )
 
@@ -307,13 +321,13 @@ with st.expander("🏛 Government Schemes", expanded=True):
         "Soil Health Card",
         "Kisan Credit Card"
     ] + {
-        "Tamil Nadu":["Kuruvai Special Package"],
-        "Andhra Pradesh":["YSR Rythu Bharosa"],
-        "Telangana":["Rythu Bandhu"],
-        "Karnataka":["Raitha Siri"]
+        "Tamil Nadu": ["Kuruvai Special Package"],
+        "Andhra Pradesh": ["YSR Rythu Bharosa"],
+        "Telangana": ["Rythu Bandhu"],
+        "Karnataka": ["Raitha Siri"]
     }.get(state, [])
 
     for s in schemes:
         st.write("•", s)
 
-st.success("✅ Stable • Demo-safe • Desktop & Mobile Ready • Production Grade")
+st.success("✅ Stable • Demo-safe • Desktop & Mobile Ready • LinkedIn Ready")
