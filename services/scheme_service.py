@@ -1,62 +1,51 @@
-def get_schemes(state_or_place: str, crop: str | None = None):
+def get_schemes_by_state(state: str):
     """
-    Return government schemes based on Indian state.
-    Works even if full place name is given.
+    Returns list of government schemes relevant to the farmer's state.
+    Includes central + state-specific schemes.
     """
 
-    text = state_or_place.lower()
+    central_schemes = [
+        "PM-KISAN – ₹6000/year income support",
+        "PMFBY – Crop insurance scheme",
+        "Soil Health Card Scheme",
+        "Kisan Credit Card (KCC)",
+        "Pradhan Mantri Krishi Sinchayee Yojana (PMKSY)"
+    ]
 
-    schemes_by_state = {
-        "tamil nadu": [
-            "Kuruvai Special Package – Subsidy for short-term crops",
-            "Tamil Nadu Farmers Crop Insurance Scheme (TNFCIS)",
-            "Free electricity for agriculture pumpsets",
-            "Soil Health Card Scheme",
-            "PM-KISAN – ₹6000/year income support"
+    state_schemes = {
+        "Tamil Nadu": [
+            "Kuruvai Special Package",
+            "Free Electricity for Farmers",
+            "Chief Minister’s Farmers Protection Scheme"
         ],
-
-        "andhra pradesh": [
-            "YSR Rythu Bharosa – ₹13,500/year financial support",
-            "Andhra Pradesh Crop Insurance Scheme",
-            "Free borewell scheme for small farmers",
-            "Soil Health Card Scheme",
-            "PM-KISAN – ₹6000/year income support"
+        "Andhra Pradesh": [
+            "YSR Rythu Bharosa",
+            "Free Borewell Scheme",
+            "Crop Input Subsidy Scheme"
         ],
-
-        "karnataka": [
-            "Raitha Siri – Direct income support",
-            "Pradhan Mantri Fasal Bima Yojana (PMFBY)",
-            "Karnataka Krushi Yantra Dhare – Machinery subsidy",
-            "Soil Health Card Scheme",
-            "PM-KISAN – ₹6000/year income support"
+        "Telangana": [
+            "Rythu Bandhu",
+            "Rythu Bima (Farmer Insurance)"
         ],
-
-        "telangana": [
-            "Rythu Bandhu – Investment support per acre",
-            "Rythu Bima – Farmer life insurance",
-            "Mission Kakatiya – Irrigation tanks restoration",
-            "Soil Health Card Scheme",
-            "PM-KISAN – ₹6000/year income support"
+        "Karnataka": [
+            "Raitha Siri",
+            "Krushi Bhagya Yojana"
         ],
-
-        "maharashtra": [
-            "MahaDBT Farmer Schemes",
-            "Pradhan Mantri Fasal Bima Yojana (PMFBY)",
-            "Farm pond subsidy scheme",
-            "Soil Health Card Scheme",
-            "PM-KISAN – ₹6000/year income support"
+        "Maharashtra": [
+            "Mahadbt Farmer Subsidy Scheme",
+            "Baliraja Electricity Subsidy"
+        ],
+        "Punjab": [
+            "Punjab Smart Seeder Subsidy",
+            "Free Power for Agriculture"
+        ],
+        "Kerala": [
+            "Subhiksha Keralam",
+            "Karshaka Pension Scheme"
         ]
     }
 
-    # Detect state from place string
-    for state, schemes in schemes_by_state.items():
-        if state in text:
-            return schemes
+    if not state:
+        return central_schemes
 
-    # Fallback (India-wide schemes)
-    return [
-        "PM-KISAN – ₹6000/year income support",
-        "Pradhan Mantri Fasal Bima Yojana (PMFBY)",
-        "Soil Health Card Scheme",
-        "Kisan Credit Card (KCC)"
-    ]
+    return central_schemes + state_schemes.get(state, [])

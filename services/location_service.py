@@ -1,32 +1,18 @@
 from geopy.geocoders import Nominatim
 
-_geolocator = Nominatim(user_agent="ai-agri-optimizer")
-
+_geolocator = Nominatim(user_agent="ai_agri_app", timeout=10)
 
 def get_coordinates(place: str):
-    """
-    Returns (lat, lon) for a place / city / PIN.
-    """
-    try:
-        location = _geolocator.geocode(place, timeout=10)
-        if location:
-            return location.latitude, location.longitude
-    except Exception:
-        pass
+    location = _geolocator.geocode(place + ", India")
+    if not location:
+        raise ValueError("Location not found")
+    return location.latitude, location.longitude, location.address
 
-    return None, None
-
-
-def get_location_name(lat: float, lon: float):
-    """
-    Reverse geocoding:
-    Returns a readable location name from coordinates.
-    """
-    try:
-        location = _geolocator.reverse((lat, lon), timeout=10)
-        if location:
-            return location.address
-    except Exception:
-        pass
-
-    return "Location not available"
+def get_state_from_address(address: str):
+    for part in address.split(","):
+        if part.strip() in [
+            "Tamil Nadu", "Andhra Pradesh", "Telangana", "Karnataka",
+            "Maharashtra", "Kerala", "Punjab", "Haryana", "Uttar Pradesh"
+        ]:
+            return part.strip()
+    return "Unknown"

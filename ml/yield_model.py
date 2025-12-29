@@ -1,30 +1,20 @@
 import joblib
-import os
-import pandas as pd
+import numpy as np
 
-MODEL_PATH = "ml/yield_model.pkl"
+model = joblib.load("ml/yield_model.pkl")
 
-model = joblib.load(MODEL_PATH)
+def predict_yield_ml(crop, soil, season, rain, temp, area):
+    crop_map = {"Rice": 0, "Wheat": 1, "Maize": 2}
+    soil_map = {"Red Loamy Soil": 0, "Black Cotton Soil": 1}
+    season_map = {"Kharif": 0, "Rabi": 1}
 
-SOIL_MAP = {
-    "Sandy": 1,
-    "Loamy": 3,
-    "Clay": 5
-}
+    X = np.array([[
+        crop_map.get(crop, 0),
+        soil_map.get(soil, 0),
+        season_map.get(season, 0),
+        rain,
+        temp
+    ]])
 
-SEASON_MAP = {
-    "Kharif": 1,
-    "Rabi": 2,
-    "Zaid": 3
-}
-
-def predict_yield(rainfall, temperature, soil, season, area):
-    df = pd.DataFrame([{
-        "rainfall_mm": rainfall,
-        "temperature_c": temperature,
-        "soil_code": SOIL_MAP.get(soil, 3),
-        "season_code": SEASON_MAP.get(season, 1),
-        "area_acres": area
-    }])
-
-    return float(model.predict(df)[0])
+    yield_per_acre = model.predict(X)[0]
+    return yield_per_acre * area
