@@ -6,53 +6,54 @@ from streamlit_folium import st_folium
 from datetime import datetime, timedelta
 import plotly.express as px
 
-# ---------------- PAGE CONFIG ----------------
+# =========================================================
+# PAGE CONFIG (AUTO-RESPONSIVE)
+# =========================================================
 st.set_page_config(
     page_title="AI Agri Optimizer",
-    layout="centered",
+    layout="wide",   # desktop wide, mobile auto stacks
     initial_sidebar_state="collapsed"
 )
 
-# ---------------- UI / MOBILE POLISH ----------------
+# =========================================================
+# GLOBAL RESPONSIVE CSS (DESKTOP + MOBILE)
+# =========================================================
 st.markdown("""
 <style>
-#MainMenu {visibility: hidden;}
-header {visibility: hidden;}
-footer {visibility: hidden;}
+#MainMenu, footer, header {visibility: hidden;}
 
 .block-container {
-    padding-top: 1rem !important;
-    padding-bottom: 2rem !important;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
 }
 
+/* Cards & metrics */
+div[data-testid="metric-container"] {
+    background: rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+/* Mobile optimizations */
 @media (max-width: 768px) {
-    h1, h2, h3 {
-        text-align: center;
-    }
-    div[data-testid="metric-container"] {
-        background-color: rgba(255,255,255,0.06);
-        padding: 14px;
-        border-radius: 14px;
-        margin-bottom: 12px;
-        text-align: center;
-    }
-    .js-plotly-plot {
-        height: 300px !important;
-    }
-    button {
-        width: 100%;
-        border-radius: 10px;
-    }
+    h1, h2, h3 { text-align: center; }
+    .js-plotly-plot { height: 300px !important; }
+    button { width: 100%; border-radius: 12px; }
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- SESSION STATE ----------------
+# =========================================================
+# SESSION STATE
+# =========================================================
 for k in ["lat", "lon", "address", "map", "analyzed"]:
     if k not in st.session_state:
         st.session_state[k] = None if k != "analyzed" else False
 
-# ---------------- LOCATION (DEPLOY SAFE) ----------------
+# =========================================================
+# SAFE LOCATION (NO GEOPY — STREAMLIT SAFE)
+# =========================================================
 def get_location(place):
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": place + ", India", "format": "json", "limit": 1}
@@ -66,17 +67,20 @@ def get_location(place):
 
     return float(data[0]["lat"]), float(data[0]["lon"]), data[0]["display_name"]
 
-# ---------------- SIDEBAR ----------------
+# =========================================================
+# SIDEBAR INPUT
+# =========================================================
 st.sidebar.title("🌾 Farm Details")
 
 place = st.sidebar.text_input("Village / City / PIN", "Madurai")
 crop = st.sidebar.selectbox("Crop", ["Rice", "Wheat", "Maize"])
 season = st.sidebar.selectbox("Season", ["Kharif", "Rabi"])
 area = st.sidebar.number_input("Area (acres)", 0.5, 50.0, 1.0)
-
 analyze = st.sidebar.button("Analyze")
 
-# ---------------- ANALYZE ----------------
+# =========================================================
+# ANALYZE ACTION
+# =========================================================
 if analyze:
     try:
         lat, lon, address = get_location(place)
@@ -94,7 +98,9 @@ if analyze:
         folium.Marker([lat, lon], tooltip=place).add_to(m)
         st.session_state.map = m
 
-# ---------------- STOP UNTIL ANALYZED ----------------
+# =========================================================
+# LANDING SCREEN
+# =========================================================
 if not st.session_state.analyzed:
     st.markdown("""
     <h1 style="text-align:center;">🌾 AI Agri Optimizer</h1>
@@ -102,38 +108,42 @@ if not st.session_state.analyzed:
     Real-time satellite & ML-based farm intelligence
     </p>
     """, unsafe_allow_html=True)
-    st.info("Enter farm details from the sidebar and tap **Analyze**")
+    st.info("Enter farm details from the sidebar and click **Analyze**")
     st.stop()
 
 lat = st.session_state.lat
 lon = st.session_state.lon
 address = st.session_state.address
 
-# ---------------- HEADER ----------------
+# =========================================================
+# HEADER
+# =========================================================
 st.markdown(f"""
 <h1 style="text-align:center;">🌾 AI Agri — {place.title()}</h1>
-<p style="text-align:center; opacity:0.85;">
+<p style="text-align:center; opacity:0.8;">
 Satellite • Weather • Soil • Yield • Cost Optimization
 </p>
 """, unsafe_allow_html=True)
 
-# ---------------- MAP ----------------
+# =========================================================
+# MAP (NO FLASHING)
+# =========================================================
 st.subheader("🗺 Farm Location")
 st.success(address)
-st_folium(st.session_state.map, height=280, key="STATIC_MAP")
+st_folium(st.session_state.map, height=300, key="STATIC_MAP")
 
-# ---------------- WEATHER ----------------
+# =========================================================
+# WEATHER (NASA POWER)
+# =========================================================
 with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
-
-    weather_url = (
-        "https://power.larc.nasa.gov/api/temporal/daily/point"
-        "?parameters=T2M,PRECTOTCORR"
-        f"&latitude={lat}&longitude={lon}"
-        "&community=AG&format=JSON"
-    )
-
     try:
-        w = requests.get(weather_url, timeout=20).json()
+        w = requests.get(
+            f"https://power.larc.nasa.gov/api/temporal/daily/point"
+            f"?parameters=T2M,PRECTOTCORR&latitude={lat}&longitude={lon}"
+            f"&community=AG&format=JSON",
+            timeout=15
+        ).json()
+
         p = w["properties"]["parameter"]
 
         weather_df = pd.DataFrame({
@@ -142,31 +152,30 @@ with st.expander("🌦 Weather (Last 7 Days)", expanded=True):
         })
     except Exception:
         weather_df = pd.DataFrame({
-            "Temperature (°C)": [30, 31, 32, 31, 30, 29, 30],
-            "Rainfall (mm)": [2, 0, 5, 1, 0, 0, 3]
+            "Temperature (°C)": [30,31,32,31,30,29,30],
+            "Rainfall (mm)": [2,0,5,1,0,0,3]
         })
-        st.warning("Live weather unavailable – using seasonal averages.")
+        st.warning("Live weather unavailable – using seasonal averages")
 
-    st.plotly_chart(px.line(weather_df, markers=True), use_container_width=True)
+    st.plotly_chart(px.line(weather_df, markers=True),
+                    use_container_width=True)
 
-# ---------------- NDVI ----------------
+# =========================================================
+# NDVI (NASA)
+# =========================================================
 with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
-
-    end = datetime.utcnow().date()
-    start = end - timedelta(days=30)
-
-    ndvi_url = (
-        "https://power.larc.nasa.gov/api/temporal/daily/point"
-        "?parameters=NDVI"
-        f"&latitude={lat}&longitude={lon}"
-        f"&start={start.strftime('%Y%m%d')}&end={end.strftime('%Y%m%d')}"
-        "&community=AG&format=JSON"
-    )
-
     avg_ndvi = None
     try:
-        nd = requests.get(ndvi_url, timeout=20).json()
-        nd = nd["properties"]["parameter"]["NDVI"]
+        end = datetime.utcnow().date()
+        start = end - timedelta(days=30)
+
+        nd = requests.get(
+            f"https://power.larc.nasa.gov/api/temporal/daily/point"
+            f"?parameters=NDVI&latitude={lat}&longitude={lon}"
+            f"&start={start.strftime('%Y%m%d')}&end={end.strftime('%Y%m%d')}"
+            f"&community=AG&format=JSON",
+            timeout=15
+        ).json()["properties"]["parameter"]["NDVI"]
 
         ndvi_df = pd.DataFrame({
             "Date": pd.to_datetime(nd.keys()),
@@ -178,76 +187,75 @@ with st.expander("🛰 Satellite NDVI (30 Days)", expanded=True):
         st.plotly_chart(px.line(ndvi_df, x="Date", y="NDVI", markers=True),
                         use_container_width=True)
     except Exception:
-        st.warning("NDVI data unavailable for this location.")
+        st.warning("NDVI unavailable for this location")
 
-# ---------------- SOIL ----------------
+# =========================================================
+# SOIL
+# =========================================================
 state = next((s for s in [
-    "Tamil Nadu", "Andhra Pradesh", "Telangana",
-    "Karnataka", "Kerala", "Punjab"
+    "Tamil Nadu","Andhra Pradesh","Telangana","Karnataka","Kerala","Punjab"
 ] if s in address), "Unknown")
 
-soil_map = {
-    "Tamil Nadu": "Red Loamy Soil",
-    "Andhra Pradesh": "Alluvial Soil",
-    "Telangana": "Black Cotton Soil",
-    "Karnataka": "Black Cotton Soil",
-    "Kerala": "Laterite Soil",
-    "Punjab": "Alluvial Soil"
-}
+soil = {
+    "Tamil Nadu":"Red Loamy Soil",
+    "Andhra Pradesh":"Alluvial Soil",
+    "Telangana":"Black Cotton Soil",
+    "Karnataka":"Black Cotton Soil",
+    "Kerala":"Laterite Soil",
+    "Punjab":"Alluvial Soil"
+}.get(state,"Mixed Regional Soil")
 
-soil = soil_map.get(state, "Mixed Regional Soil")
 st.subheader("🌱 Soil Type")
 st.success(soil)
 
-# ---------------- YIELD & PROFIT ----------------
-base_yield = {"Rice": 2400, "Wheat": 2200, "Maize": 2600}[crop]
-soil_factor = {"Red Loamy Soil": 1.0, "Alluvial Soil": 1.05,
-               "Black Cotton Soil": 1.1}.get(soil, 0.95)
-season_factor = {"Kharif": 1.0, "Rabi": 0.9}[season]
-ndvi_factor = max(0.7, min(1.2, avg_ndvi / 0.5)) if avg_ndvi else 1.0
+# =========================================================
+# YIELD + PROFIT MODEL
+# =========================================================
+base = {"Rice":2400,"Wheat":2200,"Maize":2600}[crop]
+soil_f = {"Red Loamy Soil":1.0,"Alluvial Soil":1.05,"Black Cotton Soil":1.1}.get(soil,0.95)
+season_f = {"Kharif":1.0,"Rabi":0.9}[season]
+ndvi_f = max(0.7,min(1.2,avg_ndvi/0.5)) if avg_ndvi else 1.0
 
-yield_kg = round(base_yield * soil_factor *
-                 season_factor * ndvi_factor * area, 2)
+yield_kg = round(base*soil_f*season_f*ndvi_f*area,2)
 
-price_map = {"Rice": 25, "Wheat": 28, "Maize": 22}
-cost_map = {"Rice": 18000, "Wheat": 15000, "Maize": 16000}
+price = {"Rice":25,"Wheat":28,"Maize":22}[crop]
+normal_cost = {"Rice":18000,"Wheat":15000,"Maize":16000}[crop]*area
+opt_cost = normal_cost*0.85
 
-price = price_map[crop]
-normal_cost = cost_map[crop] * area
-optimized_cost = normal_cost * 0.85
-
-revenue = yield_kg * price
-profit_normal = revenue - normal_cost
-profit_optimized = revenue - optimized_cost
+revenue = yield_kg*price
+profit_opt = revenue-opt_cost
 
 st.subheader("📊 Yield & Profit")
-st.metric("Estimated Yield (kg)", yield_kg)
-st.metric("Revenue (₹)", round(revenue, 2))
-st.metric("Optimized Profit (₹)", round(profit_optimized, 2))
+st.metric("Yield (kg)", yield_kg)
+st.metric("Revenue (₹)", round(revenue,2))
+st.metric("Optimized Profit (₹)", round(profit_opt,2))
 
-profit_df = pd.DataFrame({
-    "Scenario": ["Normal", "Optimized"],
-    "Profit (₹)": [profit_normal, profit_optimized]
-})
+st.plotly_chart(px.bar(
+    pd.DataFrame({
+        "Scenario":["Normal","Optimized"],
+        "Profit":[revenue-normal_cost, profit_opt]
+    }),
+    x="Scenario", y="Profit", text_auto=True),
+    use_container_width=True
+)
 
-st.plotly_chart(px.bar(profit_df, x="Scenario", y="Profit (₹)", text_auto=True),
-                use_container_width=True)
-
-# ---------------- GOVERNMENT SCHEMES ----------------
+# =========================================================
+# GOVERNMENT SCHEMES
+# =========================================================
 with st.expander("🏛 Government Schemes", expanded=True):
-    central = [
+    schemes = [
         "PM-KISAN – ₹6000/year",
         "PMFBY – Crop Insurance",
         "Soil Health Card",
         "Kisan Credit Card"
-    ]
-    state_schemes = {
-        "Tamil Nadu": ["Kuruvai Special Package"],
-        "Andhra Pradesh": ["YSR Rythu Bharosa"],
-        "Telangana": ["Rythu Bandhu"],
-        "Karnataka": ["Raitha Siri"]
-    }
-    for s in central + state_schemes.get(state, []):
+    ] + {
+        "Tamil Nadu":["Kuruvai Special Package"],
+        "Andhra Pradesh":["YSR Rythu Bharosa"],
+        "Telangana":["Rythu Bandhu"],
+        "Karnataka":["Raitha Siri"]
+    }.get(state,[])
+
+    for s in schemes:
         st.write("•", s)
 
-st.success("✅ Analysis complete. Mobile-ready • Stable • Deployable.")
+st.success("✅ Desktop & Mobile responsive • Stable • Production ready")
